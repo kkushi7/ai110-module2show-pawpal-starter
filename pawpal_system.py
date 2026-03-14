@@ -10,6 +10,10 @@ class Pet:
     species: str
     age: int
     notes: str = ""
+    tasks: list[Task] = field(default_factory=list)
+
+    def add_task(self, task: Task) -> None:
+        self.tasks.append(task)
 
 
 @dataclass
@@ -21,6 +25,10 @@ class Task:
     priority: str
     is_required: bool
     applies_to: Pet
+    status: str = "pending"
+
+    def mark_complete(self) -> None:
+        self.status = "completed"
 
     def estimate_score(self) -> int:
         """Compute a ranking score used by Scheduler when selecting tasks."""
