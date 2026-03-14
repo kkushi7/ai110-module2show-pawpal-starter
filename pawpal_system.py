@@ -1,61 +1,111 @@
-```
-classDiagram
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
 
 
-class Owner {
-    +name: str
-    + preferences: dict
-    + pets: list[Pet]
-    + tasks: list[Task]
-    + add_pet(pet: Pet)
-    + add_task(task: Task)
-    + edit_task(task_id: int, updates: dict)
-    + set_preferences(preferences: dict)
-}
+@dataclass
+class Pet:
+    name: str
+    species: str
+    age: int
+    notes: str = ""
 
 
-class Pet {
-    +name: str
-    + species: str
-    + age: int
-    + notes: str
-}
+@dataclass
+class Task:
+    id: int
+    title: str
+    category: str
+    duration_minutes: int
+    priority: str
+    is_required: bool
+    applies_to: Pet
+
+    def estimate_score(self) -> int:
+        """Compute a ranking score used by Scheduler when selecting tasks."""
+        priority_scores = {
+            "high": 3,
+            "medium": 2,
+            "low": 1,
+        }
+        base = priority_scores.get(self.priority.lower(), 0) * 10
+        required_bonus = 5 if self.is_required else 0
+        shorter_task_bonus = max(0, 30 - self.duration_minutes) // 5
+        return base + required_bonus + shorter_task_bonus
 
 
-class Task {
-    +id: int
-    + title: str
-    + category: str
-    + duration_minutes: int
-    + priority: str
-    + is_required: bool
-    + applies_to: Pet
-    + estimate_score() int
-}
+@dataclass
+class Owner:
+    name: str
+    preferences: dict[str, Any] = field(default_factory=dict)
+    pets: list[Pet] = field(default_factory=list)
+    tasks: list[Task] = field(default_factory=list)
+
+    def add_pet(self, pet: Pet) -> None:
+        self.pets.append(pet)
+
+    def add_task(self, task: Task) -> None:
+        self.tasks.append(task)
+
+    def edit_task(self, task_id: int, updates: dict[str, Any]) -> bool:
+        for task in self.tasks:
+            if task.id == task_id:
+                for key, value in updates.items():
+                    if hasattr(task, key):
+                        setattr(task, key, value)
+                return True
+        return False
+
+    def set_preferences(self, preferences: dict[str, Any]) -> None:
+        self.preferences = preferences
 
 
-class Scheduler {
-    +available_minutes: int
-    + owner_preferences: dict
-    + generate_daily_plan(owner: Owner) list[Task]
-    + sort_by_priority(tasks: list[Task]) list[Task]
-    + fits_time_limit(task: Task, used_minutes: int) bool
-    + explain_plan(plan: list[Task]) str
-}
+@dataclass
+class Scheduler:
+    available_minutes: int
+    owner_preferences: dict[str, Any] = field(default_factory=dict)
 
+    def sort_by_priority(self, tasks: list[Task]) -> list[Task]:
+        preferred_categories = set(
+            self.owner_preferences.get("preferred_categories", []))
 
-Owner "1" - -> "1..*" Pet: owns
-Owner "1" - -> "0..*" Task: manages
-Task "0..*" - -> "1" Pet: for
-Scheduler .. > Owner: reads data
-Scheduler .. > Task: ranks/selects
+        def task_sort_key(task: Task) -> tuple[int, int]:
+            preference_bonus = 1 if task.category in preferred_categories else 0
+            return (task.estimate_score() + preference_bonus, -task.duration_minutes)
 
+        return sorted(tasks, key=task_sort_key, reverse=True)
 
-```
+    def fits_time_limit(self, task: Task, used_minutes: int) -> bool:
+        return used_minutes + task.duration_minutes <= self.available_minutes
 
-Responsibilities by class:
-- `Owner`: stores owner profile, pet info, and task list
-supports adding/editing tasks and managing preferences.
-- `Pet`: stores pet-specific attributes(name, species/type, age) used to scope tasks.
-- `Task`: represents care activities like walking, feeding, meds, grooming, and enrichment with duration/priority metadata.
-- `Scheduler`: applies constraints(available time, priorities, owner preferences) to build a daily plan and explain task choices.
+    def generate_daily_plan(self, owner: Owner) -> list[Task]:
+        if self.owner_preferences:
+            owner.set_preferences(self.owner_preferences)
+
+        selected: list[Task] = []
+        used_minutes = 0
+
+        for task in self.sort_by_priority(owner.tasks):
+            if self.fits_time_limit(task, used_minutes):
+                selected.append(task)
+                used_minutes += task.duration_minutes
+
+        return selected
+
+    def explain_plan(self, plan: list[Task]) -> str:
+        if not plan:
+            return "No tasks could be scheduled within the available time."
+
+        lines = [
+            f"Planned {len(plan)} task(s) within {self.available_minutes} available minutes:",
+        ]
+        running_total = 0
+        for task in plan:
+            running_total += task.duration_minutes
+            required_text = "required" if task.is_required else "optional"
+            lines.append(
+                f"- {task.title} ({task.category}, {task.priority}, {required_text}, "
+                f"{task.duration_minutes} min, cumulative: {running_total} min)"
+            )
+        return "\n".join(lines)
