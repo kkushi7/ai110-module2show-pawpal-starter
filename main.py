@@ -43,8 +43,38 @@ def build_sample_data() -> Owner:
             applies_to=dog,
         )
     )
+    owner.add_task(
+        Task(
+            id=4,
+            title="Grooming",
+            category="grooming",
+            duration_minutes=25,
+            priority="low",
+            is_required=False,
+            applies_to=cat,
+        )
+    )
+
+    # Mark one task complete to demonstrate status filtering.
+    owner.tasks[1].mark_complete()
 
     return owner
+
+
+def print_task_list(header: str, tasks: list[Task]) -> None:
+    print(header)
+    print("-" * len(header))
+    if not tasks:
+        print("No tasks to show.")
+        print()
+        return
+
+    for idx, task in enumerate(tasks, start=1):
+        print(
+            f"{idx}. {task.title} for {task.applies_to.name} "
+            f"({task.duration_minutes} min, {task.priority}, status: {task.status})"
+        )
+    print()
 
 
 def main() -> None:
@@ -54,20 +84,19 @@ def main() -> None:
         owner_preferences={"preferred_categories": ["walking", "feeding"]},
     )
 
+    print_task_list("Tasks As Added (Out of Order)", owner.tasks)
+
+    sorted_by_time = scheduler.sort_by_time(owner.tasks)
+    print_task_list("Tasks Sorted By Time", sorted_by_time)
+
+    completed_tasks = scheduler.filter_tasks(owner.tasks, status="completed")
+    print_task_list("Completed Tasks", completed_tasks)
+
+    mochi_tasks = scheduler.filter_tasks(owner.tasks, pet_name="Mochi")
+    print_task_list("Tasks For Mochi", mochi_tasks)
+
     plan = scheduler.generate_daily_plan(owner)
-
-    print("Today's Schedule")
-    print("=" * 16)
-
-    if not plan:
-        print("No tasks could be scheduled today.")
-        return
-
-    for idx, task in enumerate(plan, start=1):
-        print(
-            f"{idx}. {task.title} for {task.applies_to.name} "
-            f"({task.duration_minutes} min, priority: {task.priority})"
-        )
+    print_task_list("Today's Schedule", plan)
 
 
 if __name__ == "__main__":
