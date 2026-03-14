@@ -157,8 +157,16 @@ class Scheduler:
         return filtered
 
     def sort_by_time(self, tasks: list[Task]) -> list[Task]:
-        """Sort tasks by duration so shorter tasks are considered first."""
-        return sorted(tasks, key=lambda task: task.duration_minutes)
+        """Sort tasks by scheduled clock time (HH:MM), then by duration."""
+        def sort_key(task: Task) -> tuple[int, int, int]:
+            if not task.scheduled_time:
+                return (1, 99, task.duration_minutes)
+
+            hour_str, minute_str = task.scheduled_time.split(":", maxsplit=1)
+            minutes_since_midnight = int(hour_str) * 60 + int(minute_str)
+            return (0, minutes_since_midnight, task.duration_minutes)
+
+        return sorted(tasks, key=sort_key)
 
     def sort_by_priority(self, tasks: list[Task]) -> list[Task]:
         preferred_categories = set(

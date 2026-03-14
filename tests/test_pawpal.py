@@ -204,3 +204,101 @@ def test_detect_time_conflicts_returns_warning() -> None:
     assert len(warnings) == 1
     assert "Warning:" in warnings[0]
     assert "08:00" in warnings[0]
+
+
+def test_sorting_correctness_returns_tasks_in_chronological_order() -> None:
+    pet = Pet(name="Mochi", species="dog", age=4)
+    task_late = Task(
+        id=1,
+        title="Evening walk",
+        category="walking",
+        duration_minutes=15,
+        priority="medium",
+        is_required=False,
+        applies_to=pet,
+        scheduled_time="18:30",
+    )
+    task_early = Task(
+        id=2,
+        title="Breakfast",
+        category="feeding",
+        duration_minutes=30,
+        priority="high",
+        is_required=True,
+        applies_to=pet,
+        scheduled_time="08:00",
+    )
+    task_mid = Task(
+        id=3,
+        title="Meds",
+        category="meds",
+        duration_minutes=10,
+        priority="high",
+        is_required=True,
+        applies_to=pet,
+        scheduled_time="12:00",
+    )
+
+    scheduler = Scheduler(available_minutes=120)
+    sorted_tasks = scheduler.sort_by_time([task_late, task_early, task_mid])
+
+    assert [task.id for task in sorted_tasks] == [2, 3, 1]
+
+
+def test_recurrence_logic_daily_completion_creates_next_task() -> None:
+    owner = Owner(name="Jordan")
+    pet = Pet(name="Mochi", species="dog", age=4)
+    owner.add_pet(pet)
+    daily_task = Task(
+        id=1,
+        title="Daily walk",
+        category="walking",
+        duration_minutes=20,
+        priority="high",
+        is_required=True,
+        applies_to=pet,
+        recurrence="daily",
+    )
+    owner.add_task(daily_task)
+    pet.add_task(daily_task)
+
+    scheduler = Scheduler(available_minutes=60)
+    next_task = scheduler.mark_task_complete(owner, task_id=1)
+
+    assert daily_task.status == "completed"
+    assert next_task is not None
+    assert next_task.id == 2
+    assert next_task.recurrence == "daily"
+    assert next_task.status == "pending"
+
+
+def test_conflict_detection_flags_duplicate_times() -> None:
+    mochi = Pet(name="Mochi", species="dog", age=4)
+    luna = Pet(name="Luna", species="cat", age=2)
+    task_one = Task(
+        id=1,
+        title="Walk",
+        category="walking",
+        duration_minutes=30,
+        priority="high",
+        is_required=True,
+        applies_to=mochi,
+        scheduled_time="09:00",
+    )
+    task_two = Task(
+        id=2,
+        title="Feed",
+        category="feeding",
+        duration_minutes=10,
+        priority="high",
+        is_required=True,
+        applies_to=luna,
+        scheduled_time="09:00",
+    )
+
+    scheduler = Scheduler(available_minutes=60)
+    warnings = scheduler.detect_time_conflicts([task_one, task_two])
+
+    assert warnings
+    assert "Warning:" in warnings[0]
+    assert "09:00" in warnings[0]
