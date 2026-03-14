@@ -6,6 +6,11 @@
 
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
+    Classes should include: 
+    - owner: name, pet information, add and edit tasks and schedule
+    - pet: type, age
+    - tasks: walking, feeding, meds, etc.
+    - scheduler: avalability, priority, owner preferences
 
 **b. Design changes**
 
