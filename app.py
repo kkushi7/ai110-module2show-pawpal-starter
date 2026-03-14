@@ -50,12 +50,32 @@ if "owner" not in st.session_state:
 else:
     st.session_state.owner.name = owner_name
 
+if st.button("Add pet"):
+    new_pet = Pet(name=pet_name, species=species, age=1)
+    st.session_state.owner.add_pet(new_pet)
+    st.success(f"Added pet: {pet_name}")
+
+if st.session_state.owner.pets:
+    st.write("Current pets:")
+    st.table(
+        [
+            {"name": pet.name, "species": pet.species, "age": pet.age}
+            for pet in st.session_state.owner.pets
+        ]
+    )
+else:
+    st.info("No pets yet. Add one above.")
+
 st.markdown("### Tasks")
 st.caption(
     "Add a few tasks. In your final version, these should feed into your scheduler.")
 
-if "tasks" not in st.session_state:
-    st.session_state.tasks = []
+pet_names = [pet.name for pet in st.session_state.owner.pets]
+assigned_pet_name = st.selectbox(
+    "Assign task to pet",
+    options=pet_names if pet_names else ["No pets available"],
+    disabled=not pet_names,
+)
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -67,14 +87,39 @@ with col3:
     priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
 
 if st.button("Add task"):
-    st.session_state.tasks.append(
-        {"title": task_title, "duration_minutes": int(
-            duration), "priority": priority}
-    )
+    if not st.session_state.owner.pets:
+        st.warning("Add a pet before adding tasks.")
+    else:
+        assigned_pet = next(
+            pet for pet in st.session_state.owner.pets if pet.name == assigned_pet_name
+        )
+        new_task = Task(
+            id=len(st.session_state.owner.tasks) + 1,
+            title=task_title,
+            category="general",
+            duration_minutes=int(duration),
+            priority=priority,
+            is_required=priority == "high",
+            applies_to=assigned_pet,
+        )
+        st.session_state.owner.add_task(new_task)
+        assigned_pet.add_task(new_task)
+        st.success(f"Added task: {task_title}")
 
-if st.session_state.tasks:
+if st.session_state.owner.tasks:
     st.write("Current tasks:")
-    st.table(st.session_state.tasks)
+    st.table(
+        [
+            {
+                "title": task.title,
+                "pet": task.applies_to.name,
+                "duration_minutes": task.duration_minutes,
+                "priority": task.priority,
+                "status": task.status,
+            }
+            for task in st.session_state.owner.tasks
+        ]
+    )
 else:
     st.info("No tasks yet. Add one above.")
 
