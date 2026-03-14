@@ -172,3 +172,35 @@ def test_mark_task_complete_no_recurrence_creates_no_new_task() -> None:
     assert one_time_task.status == "completed"
     assert next_task is None
     assert len(owner.tasks) == 1
+
+
+def test_detect_time_conflicts_returns_warning() -> None:
+    mochi = Pet(name="Mochi", species="dog", age=4)
+    luna = Pet(name="Luna", species="cat", age=2)
+    task_one = Task(
+        id=1,
+        title="Morning walk",
+        category="walking",
+        duration_minutes=30,
+        priority="high",
+        is_required=True,
+        applies_to=mochi,
+        scheduled_time="08:00",
+    )
+    task_two = Task(
+        id=2,
+        title="Breakfast feeding",
+        category="feeding",
+        duration_minutes=10,
+        priority="high",
+        is_required=True,
+        applies_to=luna,
+        scheduled_time="08:00",
+    )
+
+    scheduler = Scheduler(available_minutes=60)
+    warnings = scheduler.detect_time_conflicts([task_one, task_two])
+
+    assert len(warnings) == 1
+    assert "Warning:" in warnings[0]
+    assert "08:00" in warnings[0]

@@ -19,6 +19,7 @@ def build_sample_data() -> Owner:
             priority="high",
             is_required=True,
             applies_to=dog,
+            scheduled_time="08:00",
         )
     )
     owner.add_task(
@@ -30,6 +31,7 @@ def build_sample_data() -> Owner:
             priority="high",
             is_required=True,
             applies_to=cat,
+            scheduled_time="08:00",
         )
     )
     owner.add_task(
@@ -41,6 +43,7 @@ def build_sample_data() -> Owner:
             priority="medium",
             is_required=True,
             applies_to=dog,
+            scheduled_time="18:00",
         )
     )
     owner.add_task(
@@ -52,6 +55,7 @@ def build_sample_data() -> Owner:
             priority="low",
             is_required=False,
             applies_to=cat,
+            scheduled_time="19:00",
         )
     )
 
@@ -70,9 +74,10 @@ def print_task_list(header: str, tasks: list[Task]) -> None:
         return
 
     for idx, task in enumerate(tasks, start=1):
+        time_text = task.scheduled_time or "unscheduled"
         print(
             f"{idx}. {task.title} for {task.applies_to.name} "
-            f"({task.duration_minutes} min, {task.priority}, status: {task.status})"
+            f"({task.duration_minutes} min, {task.priority}, {time_text}, status: {task.status})"
         )
     print()
 
@@ -94,6 +99,14 @@ def main() -> None:
 
     mochi_tasks = scheduler.filter_tasks(owner.tasks, pet_name="Mochi")
     print_task_list("Tasks For Mochi", mochi_tasks)
+
+    conflict_warnings = scheduler.detect_time_conflicts(owner.tasks)
+    if conflict_warnings:
+        print("Schedule Warnings")
+        print("-" * 17)
+        for warning in conflict_warnings:
+            print(warning)
+        print()
 
     plan = scheduler.generate_daily_plan(owner)
     print_task_list("Today's Schedule", plan)

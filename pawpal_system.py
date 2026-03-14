@@ -25,6 +25,7 @@ class Task:
     priority: str
     is_required: bool
     applies_to: Pet
+    scheduled_time: str | None = None
     recurrence: str | None = None
     status: str = "pending"
 
@@ -74,6 +75,35 @@ class Owner:
 class Scheduler:
     available_minutes: int
     owner_preferences: dict[str, Any] = field(default_factory=dict)
+
+    def detect_time_conflicts(self, tasks: list[Task]) -> list[str]:
+        """Return warnings for tasks that share the same scheduled time."""
+        time_slots: dict[str, list[Task]] = {}
+        for task in tasks:
+            if task.scheduled_time is None:
+                continue
+            time_slots.setdefault(task.scheduled_time, []).append(task)
+
+        warnings: list[str] = []
+        for slot, slot_tasks in time_slots.items():
+            if len(slot_tasks) < 2:
+                continue
+
+            pet_names = {task.applies_to.name for task in slot_tasks}
+            task_labels = ", ".join(
+                f"{task.title} ({task.applies_to.name})" for task in slot_tasks
+            )
+            if len(pet_names) == 1:
+                pet_name = next(iter(pet_names))
+                warnings.append(
+                    f"Warning: multiple tasks for {pet_name} are scheduled at {slot}: {task_labels}."
+                )
+            else:
+                warnings.append(
+                    f"Warning: tasks for different pets are scheduled at {slot}: {task_labels}."
+                )
+
+        return warnings
 
     def mark_task_complete(self, owner: Owner, task_id: int) -> Task | None:
         """Mark a task complete and auto-create the next recurring task instance."""
