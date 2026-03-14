@@ -74,6 +74,29 @@ class Scheduler:
     available_minutes: int
     owner_preferences: dict[str, Any] = field(default_factory=dict)
 
+    def filter_tasks(
+        self,
+        tasks: list[Task],
+        status: str | None = None,
+        pet_name: str | None = None,
+    ) -> list[Task]:
+        """Filter tasks by completion status and/or pet name."""
+        filtered = tasks
+        if status is not None:
+            filtered = [task for task in filtered if task.status == status]
+        if pet_name is not None:
+            normalized = pet_name.strip().lower()
+            filtered = [
+                task
+                for task in filtered
+                if task.applies_to.name.strip().lower() == normalized
+            ]
+        return filtered
+
+    def sort_by_time(self, tasks: list[Task]) -> list[Task]:
+        """Sort tasks by duration so shorter tasks are considered first."""
+        return sorted(tasks, key=lambda task: task.duration_minutes)
+
     def sort_by_priority(self, tasks: list[Task]) -> list[Task]:
         preferred_categories = set(
             self.owner_preferences.get("preferred_categories", []))
@@ -94,7 +117,8 @@ class Scheduler:
         selected: list[Task] = []
         used_minutes = 0
 
-        for task in self.sort_by_priority(owner.tasks):
+        time_sorted_tasks = self.sort_by_time(owner.tasks)
+        for task in self.sort_by_priority(time_sorted_tasks):
             if self.fits_time_limit(task, used_minutes):
                 selected.append(task)
                 used_minutes += task.duration_minutes
