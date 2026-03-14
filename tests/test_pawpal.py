@@ -1,4 +1,4 @@
-from pawpal_system import Pet, Scheduler, Task
+from pawpal_system import Owner, Pet, Scheduler, Task
 
 
 def test_task_completion_changes_status() -> None:
@@ -119,3 +119,56 @@ def test_filter_tasks_by_pet_name() -> None:
         [task_mochi, task_luna], pet_name="Mochi")
 
     assert [task.id for task in filtered] == [1]
+
+
+def test_mark_task_complete_creates_next_daily_instance() -> None:
+    owner = Owner(name="Jordan")
+    pet = Pet(name="Mochi", species="dog", age=4)
+    owner.add_pet(pet)
+    daily_task = Task(
+        id=1,
+        title="Morning walk",
+        category="walking",
+        duration_minutes=30,
+        priority="high",
+        is_required=True,
+        applies_to=pet,
+        recurrence="daily",
+    )
+    owner.add_task(daily_task)
+    pet.add_task(daily_task)
+
+    scheduler = Scheduler(available_minutes=60)
+    next_task = scheduler.mark_task_complete(owner, task_id=1)
+
+    assert daily_task.status == "completed"
+    assert next_task is not None
+    assert next_task.id == 2
+    assert next_task.status == "pending"
+    assert next_task.recurrence == "daily"
+    assert len(owner.tasks) == 2
+
+
+def test_mark_task_complete_no_recurrence_creates_no_new_task() -> None:
+    owner = Owner(name="Jordan")
+    pet = Pet(name="Luna", species="cat", age=2)
+    owner.add_pet(pet)
+    one_time_task = Task(
+        id=1,
+        title="Vet visit",
+        category="health",
+        duration_minutes=45,
+        priority="high",
+        is_required=True,
+        applies_to=pet,
+        recurrence=None,
+    )
+    owner.add_task(one_time_task)
+    pet.add_task(one_time_task)
+
+    scheduler = Scheduler(available_minutes=60)
+    next_task = scheduler.mark_task_complete(owner, task_id=1)
+
+    assert one_time_task.status == "completed"
+    assert next_task is None
+    assert len(owner.tasks) == 1

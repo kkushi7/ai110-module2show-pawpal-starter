@@ -25,6 +25,7 @@ class Task:
     priority: str
     is_required: bool
     applies_to: Pet
+    recurrence: str | None = None
     status: str = "pending"
 
     def mark_complete(self) -> None:
@@ -73,6 +74,38 @@ class Owner:
 class Scheduler:
     available_minutes: int
     owner_preferences: dict[str, Any] = field(default_factory=dict)
+
+    def mark_task_complete(self, owner: Owner, task_id: int) -> Task | None:
+        """Mark a task complete and auto-create the next recurring task instance."""
+        for task in owner.tasks:
+            if task.id != task_id:
+                continue
+
+            task.mark_complete()
+            if task.recurrence not in {"daily", "weekly"}:
+                return None
+
+            next_task = Task(
+                id=self._next_task_id(owner.tasks),
+                title=task.title,
+                category=task.category,
+                duration_minutes=task.duration_minutes,
+                priority=task.priority,
+                is_required=task.is_required,
+                applies_to=task.applies_to,
+                recurrence=task.recurrence,
+                status="pending",
+            )
+            owner.add_task(next_task)
+            task.applies_to.add_task(next_task)
+            return next_task
+
+        return None
+
+    def _next_task_id(self, tasks: list[Task]) -> int:
+        if not tasks:
+            return 1
+        return max(task.id for task in tasks) + 1
 
     def filter_tasks(
         self,
